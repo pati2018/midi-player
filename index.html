@@ -8,7 +8,7 @@
 <style>
   :root{
     --bg:#1F3A34; --panel:#17302B; --ink:#EFE9DC; --muted:#9DB3AA;
-    --brass:#C9A54E; --note:#A8D5C2; --note-hot:#F2D98B;
+    --brass:#C9A54E; --note:#A8D5C2; --note-hot:#F2D98B; --mute:#B4695A;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Fraunces',Georgia,serif}
@@ -37,6 +37,15 @@
   .playlist li .len{margin-left:auto;color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
   .playlist li .rm{background:none;border:0;color:var(--muted);padding:2px 6px;font-size:18px;line-height:1}
   .playlist li .rm:hover{color:var(--ink)}
+  .tracks{width:100%;max-width:820px;margin-top:20px}
+  .tracks h2{margin:0 0 10px;font-size:13px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .track-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border-radius:9px;padding:10px 14px;margin-bottom:8px}
+  .track-row .tname{min-width:180px;font-size:16px}
+  .tbtn{font-family:inherit;font-size:13px;font-weight:600;border:1.5px solid var(--muted);border-radius:999px;padding:5px 15px;background:transparent;color:var(--ink);cursor:pointer}
+  .tbtn.mute.on{background:var(--mute);border-color:var(--mute);color:#1a1a1a}
+  .tbtn.solo.on{background:var(--brass);border-color:var(--brass);color:#1a2620}
+  .tvol{display:flex;align-items:center;gap:8px;margin-left:auto;color:var(--muted);font-size:14px}
+  .tvol input[type=range]{width:110px}
   body.drag::after{content:"MIDI-Dateien hier ablegen";position:fixed;inset:0;display:grid;place-items:center;background:rgba(31,58,52,.92);color:var(--brass);font-size:30px;font-weight:300;border:3px dashed var(--brass);margin:14px;border-radius:18px}
   @media (prefers-reduced-motion:reduce){canvas{transition:none}}
 </style>
@@ -82,6 +91,7 @@
   <label>Lautstärke <input id="vol" type="range" min="0" max="100" value="85"> <span id="volVal">85 %</span></label>
   <label class="upload">MIDI-Dateien hinzufügen <input id="file" type="file" accept=".mid,.midi" multiple></label>
 </div>
+<div class="tracks" id="tracks" hidden></div>
 <p class="hint" id="status">Dateien auswählen oder einfach auf die Seite ziehen.</p>
 <ul class="playlist" id="playlist"></ul>
 
@@ -249,6 +259,26 @@ function applyRoom(){
 }
 function bus(){ return master||ctx.destination }
 
+// ---------- Spuren: Mute/Solo/Lautstärke je MIDI-Kanal ----------
+// Zwischen jeder Notenquelle und dem gemeinsamen Master sitzt pro Kanal ein
+// eigener Gain-Knoten. So lässt sich jede Spur unabhängig regeln, ohne den
+// Signalweg (Hall, Kompressor, Limiter) zu verdoppeln.
+let trackState={}, chGain={};
+function channelBus(ch){
+  if(!ctx) return null;
+  if(!chGain[ch]){ const g=ctx.createGain(); g.gain.value=trackGain(ch); g.connect(bus()); chGain[ch]=g }
+  return chGain[ch];
+}
+function trackGain(ch){
+  const t=trackState[ch]; if(!t) return 1;
+  const anySolo=Object.values(trackState).some(x=>x.solo);
+  return (t.mute||(anySolo&&!t.solo)) ? 0 : t.vol;
+}
+function applyTrackMix(){
+  if(!ctx) return; const t=ctx.currentTime;
+  for(const ch in chGain) chGain[ch].gain.setTargetAtTime(trackGain(ch),t,0.03);
+}
+
 // ---------- Sampler (echte Samples via smplr) ----------
 const GM=["acoustic_grand_piano","bright_acoustic_piano","electric_grand_piano","honkytonk_piano","electric_piano_1","electric_piano_2","harpsichord","clavinet","celesta","glockenspiel","music_box","vibraphone","marimba","xylophone","tubular_bells","dulcimer","drawbar_organ","percussive_organ","rock_organ","church_organ","reed_organ","accordion","harmonica","tango_accordion","acoustic_guitar_nylon","acoustic_guitar_steel","electric_guitar_jazz","electric_guitar_clean","electric_guitar_muted","overdriven_guitar","distortion_guitar","guitar_harmonics","acoustic_bass","electric_bass_finger","electric_bass_pick","fretless_bass","slap_bass_1","slap_bass_2","synth_bass_1","synth_bass_2","violin","viola","cello","contrabass","tremolo_strings","pizzicato_strings","orchestral_harp","timpani","string_ensemble_1","string_ensemble_2","synth_strings_1","synth_strings_2","choir_aahs","voice_oohs","synth_choir","orchestra_hit","trumpet","trombone","tuba","muted_trumpet","french_horn","brass_section","synth_brass_1","synth_brass_2","soprano_sax","alto_sax","tenor_sax","baritone_sax","oboe","english_horn","bassoon","clarinet","piccolo","flute","recorder","pan_flute","blown_bottle","shakuhachi","whistle","ocarina","lead_1_square","lead_2_sawtooth","lead_3_calliope","lead_4_chiff","lead_5_charang","lead_6_voice","lead_7_fifths","lead_8_bass__lead","pad_1_new_age","pad_2_warm","pad_3_polysynth","pad_4_choir","pad_5_bowed","pad_6_metallic","pad_7_halo","pad_8_sweep","fx_1_rain","fx_2_soundtrack","fx_3_crystal","fx_4_atmosphere","fx_5_brightness","fx_6_goblins","fx_7_echoes","fx_8_scifi","sitar","banjo","shamisen","koto","kalimba","bagpipe","fiddle","shanai","tinkle_bell","agogo","steel_drums","woodblock","taiko_drum","melodic_tom","synth_drum","reverse_cymbal","guitar_fret_noise","breath_noise","seashore","bird_tweet","telephone_ring","helicopter","applause","gunshot"];
 // Pegelausgleich: die GM-Soundfonts sind je Familie unterschiedlich laut abgemischt.
@@ -290,8 +320,8 @@ function makeStrip(n,prog){
   if(ctx.createStereoPanner){
     const p=ctx.createStereoPanner();
     p.pan.value=Math.max(-1,Math.min(1,(n.pan||0)*0.75));
-    g.connect(p); p.connect(bus());
-  } else g.connect(bus());
+    g.connect(p); p.connect(channelBus(n.ch));
+  } else g.connect(channelBus(n.ch));
   return g;
 }
 async function ensureInstruments(){
@@ -313,7 +343,7 @@ async function ensureInstruments(){
     return inst.ready.then(()=>{rec.ready=true});
   });
   if(hasDrums){
-    const dg=ctx.createGain(); dg.gain.value=1; dg.connect(bus());
+    const dg=ctx.createGain(); dg.gain.value=1; dg.connect(channelBus(9));
     drumKit=lib.DrumMachine(ctx,{instrument:'LM-2',destination:dg,volume:100});
     jobs.push(drumKit.ready.then(()=>{drumMap=buildDrumMap(drumKit.getGroupNames())}));
   }
@@ -374,8 +404,8 @@ function playSynth(n,when,dur){
     const pan=ctx.createStereoPanner();
     const base_=(n.pan==null?0:n.pan)*0.7;
     pan.pan.value=Math.max(-1,Math.min(1,base_+((n.note%7)/7-0.5)*2*P.sp));
-    amp.connect(pan); pan.connect(bus());
-  } else amp.connect(bus());
+    amp.connect(pan); pan.connect(channelBus(n.ch));
+  } else amp.connect(channelBus(n.ch));
 
   // Vibrato erst nach kurzer Verzögerung – wie bei einem echten Spieler
   let vibGain=null;
@@ -404,12 +434,12 @@ function noise(){
   const s=ctx.createBufferSource(); s.buffer=noiseBuf; s.loop=true; return s;
 }
 function env(g,when,peak,dec){ g.gain.setValueAtTime(Math.max(0.0001,peak),when); g.gain.exponentialRampToValueAtTime(0.0001,when+dec) }
-function metal(when,v,dec,hp,bp){
+function metal(when,v,dec,hp,bp,dest){
   // klassische Hi-Hat/Becken-Synthese: sechs verstimmte Rechtecke
   const out=ctx.createGain(); env(out,when,v,dec);
   const h=ctx.createBiquadFilter(); h.type='highpass'; h.frequency.value=hp;
   const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=bp; b.Q.value=1.2;
-  h.connect(b); b.connect(out); out.connect(bus());
+  h.connect(b); b.connect(out); out.connect(dest);
   [2,3,4.16,5.43,6.79,8.21].forEach(r=>{
     const o=ctx.createOscillator(); o.type='square'; o.frequency.value=40*r;
     o.connect(h); o.start(when); o.stop(when+dec+0.05); track(o);
@@ -418,42 +448,42 @@ function metal(when,v,dec,hp,bp){
   nz.start(when); nz.stop(when+dec+0.05); track(nz);
 }
 function playDrum(n,when){
-  const v=Math.max(0.05,(n.vel/127))*(n.amp==null?1:n.amp), k=n.note;
+  const v=Math.max(0.05,(n.vel/127))*(n.amp==null?1:n.amp), k=n.note, d=channelBus(n.ch);
   if(k===35||k===36){                                   // Bassdrum: Tonhöhenhüllkurve + Click
-    const g=ctx.createGain(); g.connect(bus());
+    const g=ctx.createGain(); g.connect(d);
     const o=ctx.createOscillator(); o.type='sine';
     o.frequency.setValueAtTime(k===35?150:165,when);
     o.frequency.exponentialRampToValueAtTime(45,when+0.09);
     env(g,when,v*1.15,0.42); o.connect(g); o.start(when); o.stop(when+0.5); track(o);
     const c=noise(), cf=ctx.createBiquadFilter(); cf.type='highpass'; cf.frequency.value=2500;
     const cg=ctx.createGain(); env(cg,when,v*0.30,0.02);
-    c.connect(cf); cf.connect(cg); cg.connect(bus()); c.start(when); c.stop(when+0.05); track(c);
+    c.connect(cf); cf.connect(cg); cg.connect(d); c.start(when); c.stop(when+0.05); track(c);
   }
   else if(k===38||k===40||k===37||k===39){              // Snare / Rim / Clap
-    const body=ctx.createGain(); body.connect(bus());
+    const body=ctx.createGain(); body.connect(d);
     [185,278].forEach((f,i)=>{const o=ctx.createOscillator();o.type='triangle';o.frequency.value=f;
       const g=ctx.createGain(); env(g,when,v*(i?0.22:0.38),0.09); o.connect(g); g.connect(body); o.start(when); o.stop(when+0.15); track(o)});
     const s=noise(), bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=k===37?2600:1800; bp.Q.value=0.9;
     const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=400;
     const g=ctx.createGain(); env(g,when,v*(k===37?0.35:0.75),k===37?0.06:0.19);
-    s.connect(bp); bp.connect(hp); hp.connect(g); g.connect(bus()); s.start(when); s.stop(when+0.3); track(s);
+    s.connect(bp); bp.connect(hp); hp.connect(g); g.connect(d); s.start(when); s.stop(when+0.3); track(s);
   }
-  else if(k===42||k===44){ metal(when,v*0.42,k===44?0.07:0.05,7000,10500) }
-  else if(k===46){        metal(when,v*0.46,0.36,6500,9000) }
-  else if(k===49||k===52||k===55||k===57){ metal(when,v*0.42,1.7,3800,6000) }
-  else if(k===51||k===53||k===59){         metal(when,v*0.34,1.1,5200,8000) }
+  else if(k===42||k===44){ metal(when,v*0.42,k===44?0.07:0.05,7000,10500,d) }
+  else if(k===46){        metal(when,v*0.46,0.36,6500,9000,d) }
+  else if(k===49||k===52||k===55||k===57){ metal(when,v*0.42,1.7,3800,6000,d) }
+  else if(k===51||k===53||k===59){         metal(when,v*0.34,1.1,5200,8000,d) }
   else if(k>=41&&k<=50){                                // Toms
-    const g=ctx.createGain(); g.connect(bus());
+    const g=ctx.createGain(); g.connect(d);
     const base=k<=43?95:k<=47?135:190;
     const o=ctx.createOscillator(); o.type='sine';
     o.frequency.setValueAtTime(base*1.6,when); o.frequency.exponentialRampToValueAtTime(base,when+0.12);
     env(g,when,v*0.85,0.42); o.connect(g); o.start(when); o.stop(when+0.5); track(o);
     const s=noise(), sf=ctx.createBiquadFilter(); sf.type='bandpass'; sf.frequency.value=base*3;
-    const sg=ctx.createGain(); env(sg,when,v*0.18,0.06); s.connect(sf); sf.connect(sg); sg.connect(bus());
+    const sg=ctx.createGain(); env(sg,when,v*0.18,0.06); s.connect(sf); sf.connect(sg); sg.connect(d);
     s.start(when); s.stop(when+0.12); track(s);
   }
   else {                                                // Percussion allgemein
-    const g=ctx.createGain(); g.connect(bus());
+    const g=ctx.createGain(); g.connect(d);
     const o=ctx.createOscillator(); o.type='triangle'; o.frequency.value=k<60?420:820;
     env(g,when,v*0.5,0.16); o.connect(g); o.start(when); o.stop(when+0.25); track(o);
   }
@@ -538,14 +568,45 @@ function select(i,autoplay=false){
   stop(); currentIdx=i; song=list[i].song; offset=0;
   $('title').textContent=list[i].name;
   $('status').textContent=`${song.notes.length} Noten, ${fmt(song.duration)} lang.`;
-  renderList(); if(autoplay) start();
+  renderList(); renderTracks(); if(autoplay) start();
 }
 function remove(i){
   list.splice(i,1);
   if(list.length===0){stop();song=null;currentIdx=-1;$('title').textContent='';$('status').textContent='Playlist ist leer – Dateien hinzufügen.';}
   else if(i===currentIdx) select(Math.min(i,list.length-1));
   else if(i<currentIdx) currentIdx--;
-  renderList();
+  renderList(); renderTracks();
+}
+function trackLabel(ch){
+  if(ch===9) return 'Schlagzeug';
+  const n=song.notes.find(x=>x.ch===ch);
+  const gm=GM[n?n.prog:0]||'instrument';
+  return gm.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+}
+// Baut das Mixer-Panel für den aktuell geladenen Song neu auf – jeder MIDI-
+// Kanal ist eine Spur mit eigenem Stumm/Solo/Lautstärke-Regler.
+function renderTracks(){
+  const wrap=$('tracks');
+  if(!song||!song.notes.length){ wrap.hidden=true; wrap.innerHTML=''; return }
+  const channels=[...new Set(song.notes.map(n=>n.ch))].sort((a,b)=>a-b);
+  trackState={}; channels.forEach(ch=>trackState[ch]={mute:false,solo:false,vol:1});
+  wrap.hidden=false;
+  wrap.innerHTML='<h2>Spuren</h2>'+channels.map(ch=>`
+    <div class="track-row" data-ch="${ch}">
+      <span class="tname">Kanal ${ch+1} · ${trackLabel(ch)}</span>
+      <button class="tbtn mute" aria-pressed="false">Stumm</button>
+      <button class="tbtn solo" aria-pressed="false">Solo</button>
+      <span class="tvol">Lautstärke <input type="range" min="0" max="150" value="100"> <span class="tvolval">100 %</span></span>
+    </div>`).join('');
+  wrap.querySelectorAll('.track-row').forEach(row=>{
+    const ch=+row.dataset.ch;
+    const mb=row.querySelector('.mute'), sb=row.querySelector('.solo');
+    const vr=row.querySelector('input[type=range]'), vv=row.querySelector('.tvolval');
+    mb.onclick=()=>{ trackState[ch].mute=!trackState[ch].mute; mb.classList.toggle('on',trackState[ch].mute); mb.setAttribute('aria-pressed',trackState[ch].mute); applyTrackMix() };
+    sb.onclick=()=>{ trackState[ch].solo=!trackState[ch].solo; sb.classList.toggle('on',trackState[ch].solo); sb.setAttribute('aria-pressed',trackState[ch].solo); applyTrackMix() };
+    vr.oninput=()=>{ trackState[ch].vol=vr.value/100; vv.textContent=vr.value+' %'; applyTrackMix() };
+  });
+  applyTrackMix();       // vorhandene Kanal-Busse (von einem vorherigen Song) auf die frischen Werte ziehen
 }
 function renderList(){
   $('playlist').innerHTML='';
