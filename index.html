@@ -13,6 +13,10 @@
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Fraunces',Georgia,serif}
   body{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 18px 40px}
+  .site-nav{width:100%;max-width:820px;display:flex;gap:18px;font-size:14px;margin-bottom:14px}
+  .site-nav a{color:var(--muted);text-decoration:none;padding-bottom:2px}
+  .site-nav a:hover{color:var(--ink)}
+  .site-nav a[aria-current]{color:var(--ink);border-bottom:1.5px solid var(--brass)}
   header{width:100%;max-width:820px;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px}
   h1{margin:0;font-weight:300;font-size:clamp(28px,5vw,44px);letter-spacing:-.01em}
   #title{color:var(--muted);font-size:15px}
@@ -51,6 +55,10 @@
 </style>
 </head>
 <body>
+<nav class="site-nav" aria-label="Apps">
+  <a href="index.html" aria-current="page">MIDI-Player</a>
+  <a href="sequenzer.html">Groove-Werkstatt</a>
+</nav>
 <header>
   <h1>MIDI-Player</h1>
   <span id="title">Ode an die Freude · D-Dur</span>
@@ -622,6 +630,18 @@ function addFiles(files){
   [...files].filter(f=>/\.midi?$/i.test(f.name)).forEach(f=>f.arrayBuffer().then(b=>addFile(b,f.name.replace(/\.midi?$/i,''))));
 }
 (function(){const s=atob(EMBEDDED),a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i);addFile(a.buffer,'Ode an die Freude · D-Dur')})();
+// Groove aus der Groove-Werkstatt übernehmen (sequenzer.html legt ihn im localStorage ab)
+(function(){
+  if(location.hash!=='#groove') return;
+  try{
+    const raw=localStorage.getItem('groove-export'); localStorage.removeItem('groove-export');
+    history.replaceState(null,'',location.pathname);
+    if(!raw) return;
+    const {name,b64}=JSON.parse(raw), s=atob(b64), a=new Uint8Array(s.length);
+    for(let i=0;i<s.length;i++) a[i]=s.charCodeAt(i);
+    addFile(a.buffer,name); select(list.length-1);
+  }catch(e){}
+})();
 
 // ---------- Bedienung ----------
 $('play').onclick=()=>playing?pause():start();
