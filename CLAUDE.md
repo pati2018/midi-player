@@ -26,6 +26,8 @@ Repo, neue Regel), diese Datei mit aktualisieren.**
 |------|--------|--------|
 | `pati2018/pati2018.github.io` | **Hauptseite „Meine Web-Apps“** mit allen Musik-Apps | https://pati2018.github.io/ |
 | `pati2018/midi-player` | MIDI-Player (`index.html`) und Groove-Werkstatt (`sequenzer.html`), MIDI-Demodateien | laut README für Vercel gedacht – noch nicht auf der Übersicht |
+| `pati2018/Gitarre` | Smart Instruments | https://pati2018.github.io/Gitarre/?gitarre |
+| `pati2018/soundwhacker-looper` | SoundWhacker Smart Control (`SoundWhacker_Spielen.html`) und MIGA (`SoundWhacker_Kamera.html`) | https://pati2018.github.io/soundwhacker-looper/ |
 | `pati2018/meine-app` | Beispiel/Vorlage für eine einzelne App | https://pati2018.github.io/meine-app/ |
 
 Braucht ein Chat ein Repo, das nicht in der Sitzung ist, holt er es sich dazu
@@ -35,16 +37,22 @@ Braucht ein Chat ein Repo, das nicht in der Sitzung ist, holt er es sich dazu
 
 - **Veröffentlichung:** GitHub Pages direkt aus `main`. Nach dem Push ist die
   Änderung nach 1–2 Minuten online.
-- **Sicherungen:** Stabile Stände liegen als eigene Branches (`stabil-v…`).
+- **Sicherungen:** Stabile Stände liegen als eigene Branches (`stabil-v1` bis `stabil-v7`,
+  `stabil/tischharfe-v1.0`).
   Vor größeren Umbauen einen neuen Stand sichern.
-- **Apps (je ein Ordner):**
-  - `tischharfe/` – Tischharfe mit Unterlegnoten (`lieder.js` = Lieder,
-    `kopf.js` = Kopfsteuerung, `aufnahme.js` = Video-Aufnahme)
-  - `smart-instruments/` – Smart Instruments
-  - `soundwhacker-spielen/` – SoundWhacker Smart Control
-  - `miga/` – MIGA: Mimik, Gestik, Augensteuerung
-  - `singen/` – Singen mit SoundWhackern
-  - `atemklang/` – Atemklang
+- **Apps:** Die Liste aller Apps steht in `apps.js` (`window.APPS`).
+  - Im Repo selbst (je ein Ordner):
+    - `tischharfe/` – Tischharfe mit Unterlegnoten (`lieder.js` = Lieder,
+      `kopf.js` = Kopfsteuerung, `aufnahme.js` = Video-Aufnahme)
+    - `singen/` – Singen mit SoundWhackern
+    - `atemklang/` – Atemklang
+  - In eigenen Repos (nur verlinkt):
+    - Smart Instruments → Repo `pati2018/Gitarre`
+    - SoundWhacker Smart Control und MIGA (Mimik, Gestik, Augensteuerung)
+      → Repo `pati2018/soundwhacker-looper`
+- **Weitere Dateien:** `index.html` (Übersicht), `app.html` (zeigt die Anleitung
+  einer App), `anleitungen/<id>.md` (Anleitungen), `style.css`, `theme.js`
+  (Hell/Dunkel), `manifest.webmanifest` (Home-Bildschirm), `lib/` (marked, DOMPurify).
 - **Neue App hinzufügen (2 Schritte):**
   1. In `apps.js` einen neuen Block in `window.APPS` eintragen
      (`id`, `titel`, `kurz`, `link`, `repo`, `kategorie`, `symbol`, `datum`).
@@ -65,5 +73,8 @@ Braucht ein Chat ein Repo, das nicht in der Sitzung ist, holt er es sich dazu
 ## Offene Ideen
 
 - MIDI-Player und Groove-Werkstatt auf die Übersicht „Meine Web-Apps“ bringen.
-- Diese Datei auch ins Repo `pati2018.github.io` legen, damit Chats dort sie
-  ebenfalls lesen.
+
+## Diese Datei gibt es zweimal
+
+Gleicher Inhalt in `pati2018.github.io` und `midi-player`. Bei Änderungen beide
+Kopien aktualisieren.
